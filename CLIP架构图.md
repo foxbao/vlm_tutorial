@@ -6,104 +6,73 @@
 
 ```mermaid
 flowchart TD
-    %% 定义样式
-    classDef vision fill:#4A90E2,stroke:#2E6CB8,color:#FFFFFF;
-    classDef text fill:#50E3C2,stroke:#2BA887,color:#FFFFFF;
-    classDef shared fill:#F5A623,stroke:#D68910,color:#FFFFFF;
-    classDef input fill:#E0E0E0,stroke:#999999,color:#333333;
-    classDef output fill:#9B59B6,stroke:#8E44AD,color:#FFFFFF;
-
-    %% 输入数据
-    Input["输入数据<br/>(Input Data)"]
-    image_input["Image Input<br/>224×224 RGB"]
-    text_input["Text Token IDs<br/>最大77 tokens"]
-
-    %% 左侧 - 视觉分支
-    Vision["视觉分支 (Vision)"]
-    Vision_encoder[" vision_model<br/>ViT-Base/Patch32"]
-    Vision_layers[" Vision Transformer<br/>12 Layers"]
-    Patch_embed[" Patch Embedding<br/>Linear 3×224 → 192×56"]
-    Vision_tokens[" Patch Tokens<br/>56 × 192-dim"]
-    CLS_token[" CLS Token<br/>Start of text token"]
-    Vision_norm[" LayerNorm"]
-    Vision_mlp[" MLP Projector<br/>GeLU + Dropout"]
-    Vision_features[" Visual Features<br/>512-dim"]
-
-    %% 右侧 - 文本分支
-    Text["文本分支 (Text)"]
-    Text_encoder[" text_model<br/>Transformer"]
-    Text_layers[" Text Transformer<br/>12 Layers"]
-    Text_embed[" Text Embeddings<br/>Token Embedding + Position"]
-    Text_tokens[" Text Tokens<br/>Tokens up to 77"]
-    Text_norm[" LayerNorm"]
-    Text_mlp[" MLP Projector<br/>GeLU + Dropout"]
-    Text_features[" Text Features<br/>512-dim"]
-
-    %% 中间共享层
-    Shared["共享层 (Shared)"]
-    Concat[" Concatenate<br/>[CLS + 56 patches + 20 text pads]"]
-    Reshape[" Reshape<br/>ViT: 192×56 → 512<br/>LM: 512 × 文本长度"]
-    Linear[" Linear Projection<br/>512 × 512"]
-    Shared_features[" Shared Features<br/>512-dim (v_i, w_j)"]
-
-    %% 输出
-    Output["输出 (Output)"]
-    Logits[" Logits Matrix<br/>VocabSize × 512"]
-    Loss[" Negative Log-Likelihood Loss<br/>NLL Loss - Cross Entropy"]
-    Temperature[" Temperature Scaling<br/>0.07"]
-
-    %% 连接线
-    Input -->|1. Data Loading| image_input
-    Input -->|1. Data Loading| text_input
-
-    image_input -->|2. Preprocess| Patch_embed
-    Patch_embed -->|-| Vision_tokens
-    Vision_tokens -->|3. Vision Transformer| Vision_layers
-    Vision_layers -->|-| Vision_norm
-    Vision_norm -->|-| Vision_mlp
-    Vision_mlp -->|4. Visual Features| Vision_features
-
-    text_input -->|2. Tokenize| Text_embed
-    Text_embed -->|3. Text Transformer| Text_layers
-    Text_layers -->|4. Text Features| Text_features
-
-    %% 绘制 ViT 架构（详细）
-    Patch_embed -->|56 patches| ViT_detail
-
-    subgraph ViT_layers["ViT Layer Details"]
-        direction TB
-        ViT_L12["ViT Layer 12"] --> ViT_L11["ViT Layer 11"]
-        ViT_L11 --> ViT_L10["ViT Layer 10"]
-        ViT_L10 --> ViT_L9["ViT Layer 9"]
-        ViT_L9 --> ViT_L8["ViT Layer 8"]
-        ViT_L8 --> ViT_L7["ViT Layer 7"]
-        ViT_L7 --> ViT_L6["ViT Layer 6"]
-        ViT_L6 --> ViT_L5["ViT Layer 5"]
-        ViT_L5 --> ViT_L4["ViT Layer 4"]
-        ViT_L4 --> ViT_L3["ViT Layer 3"]
-        ViT_L3 --> ViT_L2["ViT Layer 2"]
-        ViT_L2 --> ViT_L1["ViT Layer 1"]
+    subgraph input["输入层 (Input)"]
+        direction LR
+        image_in["Image Input<br/>224×224 RGB"]
+        text_in["Text Token IDs<br/>77 tokens"]
     end
 
-    ViT_L1 --> Vision_features
+    subgraph vision["可视化分支 (Vision Encoder)"]
+        direction TB
+        patch_emb["Patch Embedding"]
+        vision_tokens["Patch Tokens (56×192)"]
+        vi_t_layers["ViT Transformer Layers"]
+        ln["LayerNorm"]
+        mlp["MLP Projector"]
+        vis_features["Visual Features<br/>(512-dim)"]
+    end
 
-    %% MLP 拉平
-    Vision_features -->|Flatten & Reshape| Shared_features
-    Text_features -->|Flatten & Reshape| Shared_features
+    subgraph text_t["文本分支 (Text Encoder)"]
+        direction TB
+        text_emb["Text Embeddings"]
+        text_tokens["Text Tokens"]
+        text_layers["Transformer Layers"]
+        text_ln["LayerNorm"]
+        text_mlp["MLP Projector"]
+        text_features["Text Features<br/>(512-dim)"]
+    end
 
-    %% 共享输出
-    Shared_features -->|Compute dot products| Logits
-    Logits -->|Temperature scaling| Temperature
+    subgraph shared["共享层 (Shared MLP)"]
+        direction TB
+        concat["Concatenate"]
+        reshape["Reshape"]
+        linear["Linear Projection"]
+        shared_feat["Shared Features<br/>(512-dim)"]
+    end
 
-    Temperature -->|5. Compute Loss| Loss
-    Loss -->|6. Backpropagation| Vision_mlp
-    Loss -->|6. Backpropagation| Text_mlp
+    subgraph output["输出层 (Output)"]
+        direction LR
+        logits["Logits Matrix"]
+        loss["NLL Loss"]
+    end
 
-    %% 样式应用
-    class Vision,vision;
-    class Text,text;
-    class Shared,shared;
-    class input,Output,output;
+    %% 数据流
+    input --> image_in
+    input --> text_in
+
+    image_in --> patch_emb
+    patch_emb --> vision_tokens
+    vision_tokens --> vi_t_layers
+    vi_t_layers --> ln
+    ln --> mlp
+    mlp --> vis_features
+
+    text_in --> text_emb
+    text_emb --> text_tokens
+    text_tokens --> text_layers
+    text_layers --> text_ln
+    text_ln --> text_mlp
+    text_mlp --> text_features
+
+    vis_features --> concat
+    text_features --> concat
+
+    concat --> reshape
+    reshape --> linear
+    linear --> shared_feat
+
+    shared_feat --> logits
+    logits --> loss
 ```
 
 ## 关键参数
