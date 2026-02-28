@@ -1,7 +1,7 @@
-# Core deep learning
+torch>=2.1.0+cu121
 torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
+torchvision>=0.16.0+cu121
+torchaudio>=2.1.0+cu121
 
 # Hugging Face ecosystem
 transformers>=4.30.0
