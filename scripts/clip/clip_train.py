@@ -1,5 +1,10 @@
 """CLIP training script with real CIFAR-10 data"""
 import os
+import sys
+
+# Ensure paths are relative to project root regardless of where script is run from
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+os.chdir(PROJECT_ROOT)
 
 # 先清除所有代理变量，然后设置HTTP代理
 for v in ['all_proxy', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY']:
